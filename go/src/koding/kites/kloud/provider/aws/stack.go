@@ -5,8 +5,6 @@ import (
 	"fmt"
 	"strings"
 
-	"gopkg.in/mgo.v2/bson"
-
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/credentials"
 	"github.com/aws/aws-sdk-go/aws/session"
@@ -14,7 +12,6 @@ import (
 
 	"koding/kites/kloud/api/amazon"
 	"koding/kites/kloud/provider"
-	"koding/kites/kloud/provider/koding"
 	"koding/kites/kloud/stack"
 	"koding/kites/kloud/stackplan"
 
@@ -183,7 +180,6 @@ type Stack struct {
 	*provider.BaseStack
 
 	p *stackplan.Planner
-	m *MigrateProvider
 
 	// The following fields are set by buildResources method:
 	ids     stackplan.KiteMap
@@ -195,11 +191,11 @@ type Stack struct {
 // Ensure Provider implements the kloud.StackProvider interface.
 //
 // StackProvider is an interface for team kloud API.
-var _ stack.StackProvider = (*Provider)(nil)
+var _ stack.Provider = (*Provider)(nil)
 
 // Stack gives a kloud.Stacker value that implements stack
 // methods for the AWS cloud.
-func (p *Provider) Stack(ctx context.Context) (stack.Stacker, error) {
+func (p *Provider) Stack(ctx context.Context) (stack.Stack, error) {
 	bs, err := p.BaseStack(ctx)
 	if err != nil {
 		return nil, err
@@ -217,16 +213,10 @@ func (p *Provider) Stack(ctx context.Context) (stack.Stacker, error) {
 	bs.WaitResources = s.waitResources
 	bs.UpdateResources = s.updateResources
 
-	if p.Koding != nil {
-		s.m = &MigrateProvider{
-			Stack:      s,
-			Koding:     p.Koding,
-			Locker:     p.BaseProvider,
-			Status:     make(map[bson.ObjectId]*MigrationMeta),
-			KodingMeta: make(map[bson.ObjectId]*koding.Meta),
-			Log:        p.Log.New("migrate"),
-		}
-	}
-
 	return s, nil
+}
+
+// Meta implements the stack.Provider interface.
+func (p *Provider) Meta() interface{} {
+	return &AwsMeta{}
 }
